@@ -6,7 +6,7 @@ exports.getCar = async (req,res,next)=>{
         if(!Car){
             res.status(400).json({ success:false, msg:"Not Found" });
         }
-        res.status(200).json({success:true,data:Car});
+        res.status(200).json({ success:true,data:Car });
     }
     catch(err){
         res.status(400).json({ success:false, msg:"Not Found" });
