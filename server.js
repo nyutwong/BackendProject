@@ -14,7 +14,7 @@ connectDB();
 const server = app.listen(PORT, () => {
     console.log(`App listening on port ${PORT}!`);
 });
-
+app.use(express.json());
 app.use("/api/v1/cars",car);
 
 process.on("unhandledRejection",(err,promise)=>{
