@@ -1,77 +1,116 @@
 const Car = require("../models/Car");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+const fs = require("fs");
 
 exports.getCars = async (req, res, next) => {
     let query;
 
-    const reqQuery = {...req.query};
+    const reqQuery = { ...req.query };
 
-    const removeFields = ['select', 'sort', 'page', 'limit'];
+    const removeFields = ["select", "sort", "page", "limit"];
 
-    removeFields.forEach(param => delete reqQuery[param]);
+    removeFields.forEach((param) => delete reqQuery[param]);
 
     let queryStr = JSON.stringify(req.query);
-    queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
-    query = Car.find(JSON.parse(queryStr)).populate('bookings');
+    queryStr = queryStr.replace(
+        /\b(gt|gte|lt|lte|in)\b/g,
+        (match) => `$${match}`
+    );
+    query = Car.find(JSON.parse(queryStr)).populate("bookings");
 
-    if(req.query.select) {
-        const fields = req.query.select.split(',').join(' ');
+    if (req.query.select) {
+        const fields = req.query.select.split(",").join(" ");
         query = query.select(fields);
     }
 
-    if(req.query.sort) {
-        const sortBy = req.query.sort.split(',').join(' ');
+    if (req.query.sort) {
+        const sortBy = req.query.sort.split(",").join(" ");
         query = query.sort(sortBy);
-    } else{
-        query = query.sort('-createdAt');
+    } else {
+        query = query.sort("-createdAt");
     }
 
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 25;
-    const startIndex = (page-1) * limit;
-    const endIndex = page * limit
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
     const total = await Car.countDocuments();
 
-    query=query.skip(startIndex).limit(limit);
+    query = query.skip(startIndex).limit(limit);
 
     try {
         const cars = await query;
 
         const pagination = {
-            current:page,
+            current: page,
         };
 
-        if(endIndex<total){
+        if (endIndex < total) {
             pagination.next = {
-                page:page+1,
-                limit
-            }
+                page: page + 1,
+                limit,
+            };
         }
 
-        if(startIndex>0) {
+        if (startIndex > 0) {
             pagination.prev = {
-                page:page-1,
-                limit
-            }
+                page: page - 1,
+                limit,
+            };
         }
 
-        res.status(200).json({ success: true, count: cars.length, pagination, data: cars });
+        res.status(200).json({
+            success: true,
+            count: cars.length,
+            pagination,
+            data: cars,
+        });
     } catch (err) {
         res.status(400).json({ success: false, msg: err.stack });
     }
 };
 
 exports.createCar = async (req, res, next) => {
-    try {
-        const car = await Car.create(req.body);
-        res.status(201).json({ success: true, data: car });
-    } catch (err) {
-        res.status(400).json({ success: false, msg: err.message });
-    }
+    upload.single("img")(req, res, async (err) => {
+        if (err) {
+            return res
+                .status(400)
+                .json({ success: false, message: err.message });
+        }
+
+        try {
+            const { make, model, year, price } = req.body;
+
+            const newCar = new Car({
+                make: make,
+                model: model,
+                year: year,
+                price: price,
+                img: {
+                    data: fs.readFileSync(req.file.path),
+                    contentType: req.file.mimetype,
+                },
+            });
+
+            newCar
+                .save()
+                .then(() =>
+                    res.status(201).json({ success: true, data: newCar })
+                )
+                .catch((err) =>
+                    res.status(400).json({ success: false, msg: err.message })
+                );
+        } catch (err) {
+            res.status(400).json({ success: false, msg: err.message });
+        }
+    });
+    
 };
 
 exports.getCar = async (req, res, next) => {
     try {
-        const car = await Car.findById(req.params.id).populate('bookings');;
+        const car = await Car.findById(req.params.id).populate("bookings");
         if (!car) {
             return res.status(400).json({ success: false });
         }

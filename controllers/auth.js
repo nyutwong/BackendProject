@@ -1,27 +1,58 @@
 const User = require("../models/User");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+const fs = require('fs');
 
 exports.register = async (req, res, next) => {
-    try {
-        const { SSN, name, email, password, telephone_number, role, address } =
-            req.body;
-        const user = await User.create({
-            SSN,
-            name,
-            email,
-            password,
-            telephone_number,
-            role,
-            address,
-        });
-        sendTokenResponse(user, 200, res);
-    } catch (err) {
-        res.status(400).json({ success: false });
-        console.log(err.stack);
-    }
+    upload.single("img")(req, res, async (err) => {
+        if (err) {
+            return res
+                .status(400)
+                .json({ success: false, message: err.message });
+        }
+
+        try {
+            const {
+                SSN,
+                name,
+                email,
+                password,
+                telephone_number,
+                role,
+                address,
+            } = req.body;
+
+            const newUser = new User({
+                SSN: SSN,
+                name: name,
+                email: email,
+                password: password,
+                telephone_number: telephone_number,
+                role: role,
+                address: address,
+                img: {
+                    data: fs.readFileSync(req.file.path),
+                    contentType: req.file.mimetype,
+                },
+            });
+
+            newUser
+                .save()
+                .then(() => {
+                    res.send("User Added!");
+                    sendTokenResponse(newUser, 200, res);
+                })
+                .catch((err) => res.status(400).send("Error: " + err));
+
+        } catch (err) {
+            res.status(400).json({ success: false });
+            console.log(err.stack);
+        }
+    });
 };
 
 exports.login = async (req, res, next) => {
-    try{
+    try {
         const { email, password } = req.body;
 
         if (!email || !password) {
@@ -34,32 +65,39 @@ exports.login = async (req, res, next) => {
         const user = await User.findOne({ email }).select("+password");
 
         if (!user) {
-            res.status(400).json({ success: false, msg: "Invalid credentials" });
+            res.status(400).json({
+                success: false,
+                msg: "Invalid credentials",
+            });
         }
 
         const isMatch = await user.matchPassword(password);
         if (!isMatch) {
-            res.status(401).json({ success: false, msg: "Invalid credentials" });
+            res.status(401).json({
+                success: false,
+                msg: "Invalid credentials",
+            });
         }
 
         sendTokenResponse(user, 200, res);
-    }
-    catch(err){
-        res.status(401).json({success: false, msg:"cannot convert email or password to string"});
+    } catch (err) {
+        res.status(401).json({
+            success: false,
+            msg: "cannot convert email or password to string",
+        });
     }
 };
 
 exports.getMe = async (req, res, next) => {
-    try{
+    try {
         const user = await User.findById(req.user.id);
         res.status(200).json({ success: true, data: user });
-    }
-    catch(err){
+    } catch (err) {
         res.status(400).json({
-            success:false
-        })
+            success: false,
+        });
     }
-}
+};
 
 const sendTokenResponse = (user, statusCode, res) => {
     const token = user.getSignedJwtToken();
@@ -80,14 +118,14 @@ const sendTokenResponse = (user, statusCode, res) => {
     });
 };
 
-exports.logout = (req, res, next) =>{
-    res.cookie("token","none",{
-      expires: new Date(Date.now() + 10*1000),
-      httpOnly: true
+exports.logout = (req, res, next) => {
+    res.cookie("token", "none", {
+        expires: new Date(Date.now() + 10 * 1000),
+        httpOnly: true,
     });
-  
+
     res.status(200).json({
-      success: true,
-      date:{}
+        success: true,
+        date: {},
     });
-  }
+};

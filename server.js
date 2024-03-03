@@ -2,6 +2,8 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const cookieParser = require("cookie-parser");
+const multer = require('multer');
+const fs = require('fs');
 
 const cars = require("./routes/cars");
 const auth = require("./routes/auth");
